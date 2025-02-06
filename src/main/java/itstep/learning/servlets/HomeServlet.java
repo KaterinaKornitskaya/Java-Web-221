@@ -81,9 +81,9 @@ public class HomeServlet extends HttpServlet {
             message = resultSet.getString(1); // !! JDBC - індекс з 1
 
             //message = connection == null ? "NULL" : "OK";
-        } catch (SQLException e) {
-            //message = e.getMessage();
-            message2 = e.getMessage();
+        } catch (SQLException ex) {
+            //message = ex.getMessage();
+            message2 = ex.getMessage();
         }
 
 
