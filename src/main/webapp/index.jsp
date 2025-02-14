@@ -12,7 +12,7 @@
 </head>
 <body>
   <h1>JSP</h1>
-  <h2><a href="Home">Перейти на сторінку home</a></h2>
+  <h2><a href="home">Перейти на сторінку home</a></h2>
   <h2><a href="time">Перейти на сторінку time</a></h2>
   <h2>Вирази</h2>
   <%= 2 + 3 %>

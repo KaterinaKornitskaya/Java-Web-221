@@ -1,47 +1,72 @@
 package itstep.learning.servlets;
 
 import com.google.gson.Gson;
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
+import com.mysql.cj.jdbc.MysqlDataSource;
+import itstep.learning.models.UserSignupFormModel;
 import itstep.learning.rest.RestResponse;
+import itstep.learning.services.datetime.DatetimeService;
+import itstep.learning.services.random.RandomService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
+import java.util.Map;
 import java.io.IOException;
 import java.sql.*;
 
 // @ - анотації, аналог атрибутів [] в c#
 // Servlet - це типу контроллер в c#
-@WebServlet("/Home") // WebServlet який буде відгукуватись на адресу /Home
+// указывает, что сервлет будет обрабатывать запросы по адресу /Home.
+//@WebServlet("/Home") // WebServlet який буде відгукуватись на адресу /Home
+@Singleton
 public class HomeServlet extends HttpServlet {
     // final - типу readonly
     private final Gson gson = new Gson();
 
+    private final RandomService randomService;
+    private final DatetimeService datetimeService;
+
+    // інжектуємо RandomService
+    @Inject
+    public HomeServlet(RandomService randomService, DatetimeService datetimeService) {
+        this.randomService = randomService;
+        this.datetimeService = datetimeService;
+    }
+
+    // doGet — метод для обработки GET-запросов
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException
     {
-        String message;
+        String message = "";
         String message2;
-        // реєструємо новий драйвер:
-        // при створенні нового обєкту DriverManager
-        // треба написати не просто new Driver,
-        // а саме new com.mysql.cj.jdbc.Driver()
-        try {
-            DriverManager.registerDriver(
-                    new com.mysql.cj.jdbc.Driver()
-            );
-            // строка підключення, в кінці - назва БД
-            String connectionString = "jdbc:mysql://localhost:3306/java221";
-            // підключаємся до БД
-            Connection connection = DriverManager.getConnection(
-                    connectionString,
-                    "user221",
-                    "pass221"
-            );
-            String sql = "SELECT CURRENT_TIMESTAMP";
 
+        try {
+//            // підключення до БД:
+//            // реєструємо новий драйвер:
+//            // при створенні нового обєкту DriverManager треба написати не просто new Driver,
+//            // а саме new com.mysql.cj.jdbc.Driver()
+//            DriverManager.registerDriver(
+//                    new com.mysql.cj.jdbc.Driver()
+//            );
+//            // строка підключення, в кінці - назва БД
+//            String connectionString = "jdbc:mysql://localhost:3306/java221";
+//            // підключаємся до БД
+//            Connection connection = DriverManager.getConnection(
+//                    connectionString,
+//                    "user221",
+//                    "pass221"
+//            );
+
+            // ще один спосіб підключення до БД
+            MysqlDataSource mds = new MysqlDataSource();
+            mds.setURL("jdbc:mysql://localhost:3306/java221");
+            Connection connection = mds.getConnection("user221", "pass221");
+
+            String sql = "SELECT CURRENT_TIMESTAMP";
             String sql2 = "SHOW DATABASES";
             // statement - це інструмент передачі запиту в БД
             // - аналог sql command
@@ -60,8 +85,28 @@ public class HomeServlet extends HttpServlet {
             // дані при запитах в субд (тіпа в менеджмент студіо і ін)
 
             // забрати дані з ResultSet:
-            resultSet.next();
-            // тут дістаємо результат виконання sql запиту
+            resultSet.next();  // тут дістаємо результат виконання sql запиту
+
+            //  getString(1) - повертає один стовпчик
+            message = resultSet.getString(1); // !! JDBC - індекс з 1
+            //message = connection == null ? "NULL" : "OK";
+
+            // щоб зробити декылька запитів і вевести, наприклад,
+            // хочемо вівести і SELECT CURRENT_TIMESTAMP, і SHOW DATABASES разом
+
+            // закриваємо resultSet перед тим, як записати в нього результат наступного запиту
+            resultSet.close();
+            // записуємо в нього ж результат наступного запиту
+            resultSet = statement.executeQuery("SHOW DATABASES");
+            StringBuilder sb = new StringBuilder();
+            while(resultSet.next()) {
+                sb.append(", ");
+                sb.append(resultSet.getString(1));
+            }
+            resultSet.close();
+            statement.close();
+            message += sb.toString();
+
 
             // завдання - Відобразити результати запиту "SHOW DATABASES", передавши їх рядком через кому
             Statement statement2 = connection.createStatement();
@@ -74,27 +119,95 @@ public class HomeServlet extends HttpServlet {
                 // дописуємо в myDatabases кожну наступну строку
                 myDatabases.append(resultSet2.getString(1));
             }
+
+            resultSet2.close();
+            statement2.close();
             message2 = myDatabases.toString();
             // завдання закінчено
 
-            //  getString(1) - повертає один стовпчик
-            message = resultSet.getString(1); // !! JDBC - індекс з 1
-
-            //message = connection == null ? "NULL" : "OK";
         } catch (SQLException ex) {
             //message = ex.getMessage();
             message2 = ex.getMessage();
         }
 
-
-        resp.setContentType("application/json");
-        resp.getWriter().print(
-              gson.toJson(
-                   new RestResponse()
-                           .setStatus(200)
-                           .setMessage(message2)
-              )
+        sendJson(resp,
+                new RestResponse()
+                        .setStatus(200)
+                        .setMessage(message
+                                + "|" + randomService.randomInt()
+                                + "|" + datetimeService.getCurrentDateTime())
         );
+    }
 
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        // приймаємо body
+        // приймаємо байт-масив і формуємо з нього строку
+        String body = new String(req.getInputStream().readAllBytes());
+
+        // тепер отримані дані стрінг треба перетворити в джсон
+        // нам потрібні будуть моделі форм, які ми будемо приймати і обробляти
+        // для цього створюємо package itstep.learning.model, в який
+        // додаємо новий java class UserSignupFormModel
+        UserSignupFormModel model;
+
+        RestResponse restResponse =
+                new RestResponse()
+                        .setResourceUrl("POST /home")
+                        .setCacheTime(0);
+
+        try{
+            model = gson.fromJson(body, UserSignupFormModel.class);
+            // .class - типу typeof, .class повертає цей обєкт
+        }
+        catch(Exception ex){
+            sendJson(resp, restResponse
+                    .setStatus(422)
+                    .setMessage(ex.getMessage())
+            );
+            return;
+        }
+
+        // серверна валідація:
+
+        // надсилаємо відповідь клієнту в форматі джсон
+        // 201 значить created
+        sendJson(resp, restResponse
+                .setStatus(201)
+                .setMessage("Created")
+                .setMeta(Map.of(
+                        "dataType", "object",
+                        "read", "GET /home",
+                        "update", "PUT /home",
+                        "delete", "DELETE /home"
+                ))
+                .setData(model)  // model вище розібрали з джсон
+        );
+    }
+
+    private void sendJson(HttpServletResponse resp, RestResponse restResponse) throws IOException {
+        // Указываем, что ответ — в формате json
+        resp.setContentType("application/json");
+
+        // налаштували CORS
+        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        // Отправляем ответ клиенту
+
+        resp.getWriter().print(
+                gson.toJson(restResponse)
+        );
+    }
+
+    @Override
+    protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        // налаштували CORS
+        // * - значить дозволяємо звертатися з усіх сайтів
+        // або замысть * адеса нашого фронтенду, напр "http://localhost:5173/"
+        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+
+        // тут ми дозволяємо передавати content-type в заголовках
+        // (ми в методі sendJson при передачі відповіді клієнту
+        // передаємо, що у нас content-type - це json
+        resp.setHeader("Access-Control-Allow-Headers", "content-type");
     }
 }
