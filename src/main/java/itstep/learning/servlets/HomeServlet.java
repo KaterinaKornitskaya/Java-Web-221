@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.mysql.cj.jdbc.MysqlDataSource;
+import itstep.learning.dal.dao.DataContext;
 import itstep.learning.models.UserSignupFormModel;
 import itstep.learning.rest.RestResponse;
 import itstep.learning.services.datetime.DatetimeService;
@@ -35,13 +36,16 @@ public class HomeServlet extends HttpServlet {
     private final KdfService kdfService;
     private final DbService dbService;
 
+    private final DataContext dataContext;
+
     // інжектуємо RandomService
     @Inject
-    public HomeServlet(RandomService randomService, DatetimeService datetimeService, KdfService kdfService, DbService dbService) {
+    public HomeServlet(RandomService randomService, DatetimeService datetimeService, KdfService kdfService, DbService dbService, DataContext dataContext) {
         this.randomService = randomService;
         this.datetimeService = datetimeService;
         this.kdfService = kdfService;
         this.dbService = dbService;
+        this.dataContext = dataContext;
     }
 
     // doGet — метод для обработки GET-запросов
@@ -118,14 +122,26 @@ public class HomeServlet extends HttpServlet {
             message2 = ex.getMessage();
         }
 
+        String msg = dataContext.getUserDao().installTables()
+                ? "Install Ok (UserTables)"
+                : "Install Fail (UserTables)";
+
+        String msg2 = dataContext.getUserRoleDao().installUserRolesTable()
+                ? "Install Ok (UserRoleTable)"
+                : "Install Fail (UserRoleTable)";
+
         sendJson(resp,
                 new RestResponse()
                         .setStatus(200)
-                        .setMessage(message
-                                + "|" + kdfService.dk("123", "456")
-                                + "|" + randomService.randomInt()
-                                + "|" + datetimeService.getCurrentDateTime()
-                                + "|" + datetimeService.getCurrentTimestamp())
+                        .setMessage(
+                                "| myDatabases.toString(): " + message + " | "
+                                + "| kdfService.dk: " + kdfService.dk("123", "456") + " | "
+                                + "| randomService: " + randomService.randomInt() + " | "
+                                + "| datetimeService.getCurrentDateTime(): " + datetimeService.getCurrentDateTime() + " | "
+                                + "| datetimeService.getCurrentTimestamp(): " + datetimeService.getCurrentTimestamp() + " | "
+                                + "| getUserDao().installTables(): " + msg + " | "
+                                + "| getUserRoleDao().installUserRolesTable(): " + msg2 + " | "
+                        )
         );
     }
 

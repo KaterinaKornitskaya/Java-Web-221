@@ -1,6 +1,7 @@
 package itstep.learning.ioc;
 
 import com.google.inject.AbstractModule;
+import itstep.learning.dal.dao.DataContext;
 import itstep.learning.services.datetime.DatetimeService;
 import itstep.learning.services.datetime.UtilDatetimeService;
 import itstep.learning.services.db.DbService;
@@ -26,5 +27,6 @@ public class SeviceConfig extends AbstractModule {
         bind(HashService.class).to(Md5HashService.class);
         bind(KdfService.class).to(PbKdf1Service.class);
         bind(DbService.class).to(MySqlDbService.class);
+        // bind(DataContext)
     }
 }
