@@ -7,6 +7,10 @@ import com.mysql.cj.jdbc.MysqlDataSource;
 import itstep.learning.models.UserSignupFormModel;
 import itstep.learning.rest.RestResponse;
 import itstep.learning.services.datetime.DatetimeService;
+import itstep.learning.services.db.DbService;
+import itstep.learning.services.hash.HashService;
+import itstep.learning.services.hash.Md5HashService;
+import itstep.learning.services.kdf.KdfService;
 import itstep.learning.services.random.RandomService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -28,12 +32,16 @@ public class HomeServlet extends HttpServlet {
 
     private final RandomService randomService;
     private final DatetimeService datetimeService;
+    private final KdfService kdfService;
+    private final DbService dbService;
 
     // інжектуємо RandomService
     @Inject
-    public HomeServlet(RandomService randomService, DatetimeService datetimeService) {
+    public HomeServlet(RandomService randomService, DatetimeService datetimeService, KdfService kdfService, DbService dbService) {
         this.randomService = randomService;
         this.datetimeService = datetimeService;
+        this.kdfService = kdfService;
+        this.dbService = dbService;
     }
 
     // doGet — метод для обработки GET-запросов
@@ -45,32 +53,12 @@ public class HomeServlet extends HttpServlet {
         String message2;
 
         try {
-//            // підключення до БД:
-//            // реєструємо новий драйвер:
-//            // при створенні нового обєкту DriverManager треба написати не просто new Driver,
-//            // а саме new com.mysql.cj.jdbc.Driver()
-//            DriverManager.registerDriver(
-//                    new com.mysql.cj.jdbc.Driver()
-//            );
-//            // строка підключення, в кінці - назва БД
-//            String connectionString = "jdbc:mysql://localhost:3306/java221";
-//            // підключаємся до БД
-//            Connection connection = DriverManager.getConnection(
-//                    connectionString,
-//                    "user221",
-//                    "pass221"
-//            );
-
-            // ще один спосіб підключення до БД
-            MysqlDataSource mds = new MysqlDataSource();
-            mds.setURL("jdbc:mysql://localhost:3306/java221");
-            Connection connection = mds.getConnection("user221", "pass221");
-
             String sql = "SELECT CURRENT_TIMESTAMP";
             String sql2 = "SHOW DATABASES";
             // statement - це інструмент передачі запиту в БД
             // - аналог sql command
-            Statement statement = connection.createStatement();
+            Statement statement = dbService.getConnection().createStatement();
+
             // executeQuery(sql) - виконує наш sql запит
             // залежно від того, що ми хочемо, щоб нам повернулося, я такі варіанти:
             // - statement.execute - повертає boolean (успішно/неуспішно)
@@ -109,7 +97,7 @@ public class HomeServlet extends HttpServlet {
 
 
             // завдання - Відобразити результати запиту "SHOW DATABASES", передавши їх рядком через кому
-            Statement statement2 = connection.createStatement();
+            Statement statement2 = dbService.getConnection().createStatement();
             ResultSet resultSet2 = statement2.executeQuery(sql2);
             StringBuilder myDatabases = new StringBuilder();
             while (resultSet2.next()) { // тут перебираємо всі строки результату
@@ -134,8 +122,10 @@ public class HomeServlet extends HttpServlet {
                 new RestResponse()
                         .setStatus(200)
                         .setMessage(message
+                                + "|" + kdfService.dk("123", "456")
                                 + "|" + randomService.randomInt()
-                                + "|" + datetimeService.getCurrentDateTime())
+                                + "|" + datetimeService.getCurrentDateTime()
+                                + "|" + datetimeService.getCurrentTimestamp())
         );
     }
 

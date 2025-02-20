@@ -11,4 +11,9 @@ public class UtilDatetimeService implements DatetimeService{
     public String getCurrentDateTime() {
         return currDatetime;
     }
+
+    @Override
+    public Long getCurrentTimestamp() {
+        return System.currentTimeMillis();
+    }
 }

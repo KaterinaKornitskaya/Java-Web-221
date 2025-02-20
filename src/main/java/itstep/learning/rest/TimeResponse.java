@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 
 public class TimeResponse {
     private LocalDateTime time;
+
     private String message;
 
     public LocalDateTime getTime() {
