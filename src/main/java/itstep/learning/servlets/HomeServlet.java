@@ -21,6 +21,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import java.io.IOException;
 import java.sql.*;
+import itstep.learning.dal.dto.User;
 
 // @ - анотації, аналог атрибутів [] в c#
 // Servlet - це типу контроллер в c#
@@ -136,7 +137,9 @@ public class HomeServlet extends HttpServlet {
                         .setMessage(
                                 "| myDatabases.toString(): " + message + " | "
                                 + "| kdfService.dk: " + kdfService.dk("123", "456") + " | "
-                                + "| randomService: " + randomService.randomInt() + " | "
+                                + "| randomService: randomInt(): " + randomService.randomInt() + " | "
+                                + "| randomService: randomString(): " + randomService.randomString(8) + " | "
+                                + "| randomService: randomFileName(): " + randomService.randomFileName(8) + " | "
                                 + "| datetimeService.getCurrentDateTime(): " + datetimeService.getCurrentDateTime() + " | "
                                 + "| datetimeService.getCurrentTimestamp(): " + datetimeService.getCurrentTimestamp() + " | "
                                 + "| getUserDao().installTables(): " + msg + " | "
@@ -157,16 +160,25 @@ public class HomeServlet extends HttpServlet {
         // додаємо новий java class UserSignupFormModel
         UserSignupFormModel model;
 
+        // частково формуємо відповідь клієнту
         RestResponse restResponse =
                 new RestResponse()
                         .setResourceUrl("POST /home")
-                        .setCacheTime(0);
+                        .setCacheTime(0)
+                        .setMeta(Map.of(
+                                "dataType", "object",
+                                "read", "GET /home",
+                                "update", "PUT /home",
+                                "delete", "DELETE /home"
+                        ));
 
         try{
+            // парсимо модель в gson
             model = gson.fromJson(body, UserSignupFormModel.class);
             // .class - типу typeof, .class повертає цей обєкт
         }
         catch(Exception ex){
+            // якщо не змогли розпарсити модель - повертаємо 422
             sendJson(resp, restResponse
                     .setStatus(422)
                     .setMessage(ex.getMessage())
@@ -175,20 +187,31 @@ public class HomeServlet extends HttpServlet {
         }
 
         // серверна валідація:
+        // реєстрація користувача
 
-        // надсилаємо відповідь клієнту в форматі джсон
-        // 201 значить created
-        sendJson(resp, restResponse
-                .setStatus(201)
-                .setMessage("Created")
-                .setMeta(Map.of(
-                        "dataType", "object",
-                        "read", "GET /home",
-                        "update", "PUT /home",
-                        "delete", "DELETE /home"
-                ))
-                .setData(model)  // model вище розібрали з джсон
-        );
+        User user = dataContext.getUserDao().addUser(model);
+
+        // доформуємо відповіді (почали формувати вище RestResponse restResponse = ...)
+        // якщо не зміг обробити - повертаємо несформовану модель
+        if( user == null ){
+            // 507 - значить помилка роботи з даними
+            restResponse
+                    .setStatus(507)
+                    .setMessage("DB error")
+                    .setData(model)  // model вище розібрали з джсон
+            ;
+        }
+        // якщо зміг обробити - повертаємо заповненого юзера
+        else{
+            // 201 значить created
+            restResponse
+                    .setStatus(201)
+                    .setMessage("User created.")
+                    .setData(user)  // model вище розібрали з джсон
+            ;
+        }
+        // надсилаємо сформовану відповідь клієнту в форматі джсон
+        sendJson(resp, restResponse);
     }
 
     private void sendJson(HttpServletResponse resp, RestResponse restResponse) throws IOException {
@@ -196,7 +219,7 @@ public class HomeServlet extends HttpServlet {
         resp.setContentType("application/json");
 
         // налаштували CORS
-        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        resp.setHeader("Access-Control-Allow-Origin", "*");
         // Отправляем ответ клиенту
 
         resp.getWriter().print(
@@ -209,11 +232,13 @@ public class HomeServlet extends HttpServlet {
         // налаштували CORS
         // * - значить дозволяємо звертатися з усіх сайтів
         // або замысть * адеса нашого фронтенду, напр "http://localhost:5173/"
-        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        resp.setHeader("Access-Control-Allow-Origin", "*");
 
         // тут ми дозволяємо передавати content-type в заголовках
         // (ми в методі sendJson при передачі відповіді клієнту
         // передаємо, що у нас content-type - це json
         resp.setHeader("Access-Control-Allow-Headers", "content-type");
+
+        resp.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
     }
 }

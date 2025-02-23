@@ -62,7 +62,7 @@ public class TimeServlet extends HttpServlet {
         resp.setContentType("application/json");
 
         // налаштували CORS
-        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        resp.setHeader("Access-Control-Allow-Origin", "*");
         // Отправляем ответ клиенту
 
         resp.getWriter().print(
@@ -75,7 +75,7 @@ public class TimeServlet extends HttpServlet {
         // налаштували CORS
         // * - значить дозволяємо звертатися з усіх сайтів
         // або замысть * адеса нашого фронтенду, напр "http://localhost:5173/"
-        resp.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        resp.setHeader("Access-Control-Allow-Origin", "*");
 
         // тут ми дозволяємо передавати content-type в заголовках
         // (ми в методі sendJson при передачі відповіді клієнту

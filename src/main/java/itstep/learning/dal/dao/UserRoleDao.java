@@ -1,22 +1,28 @@
 package itstep.learning.dal.dao;
 
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
+import itstep.learning.services.db.DbService;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+@Singleton
 public class UserRoleDao {
     private final Connection connection;
 
-    public UserRoleDao(Connection connection) {
-        this.connection = connection;
+    @Inject
+    public UserRoleDao(DbService dbService) throws SQLException {
+        this.connection = dbService.getConnection();
     }
 
     public boolean installUserRolesTable(){
-        String sql = "CREATE TABLE IF NOT EXISTS userRoles ("
+        String sql = "CREATE TABLE IF NOT EXISTS user_roles ("
                 + "userRole_id VARCHAR(20) PRIMARY KEY,"
                 + "description VARCHAR(255) NOT NULL,"
                 + "can_create TINYINT(1) NOT NULL,"
-                + "can_read TINYINT(1) NOT NULL DEFAULT 1,"
+                + "can_read TINYINT(1) NOT NULL,"
                 + "can_update TINYINT(1) NOT NULL,"
                 + "can_delete TINYINT(1) NOT NULL"
                 + ") Engine = InnoDB DEFAULT CHARSET = utf8mb4";
