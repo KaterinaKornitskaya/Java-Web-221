@@ -7,6 +7,7 @@ import com.mysql.cj.jdbc.MysqlDataSource;
 import itstep.learning.dal.dao.DataContext;
 import itstep.learning.models.UserSignupFormModel;
 import itstep.learning.rest.RestResponse;
+import itstep.learning.rest.RestService;
 import itstep.learning.services.datetime.DatetimeService;
 import itstep.learning.services.db.DbService;
 import itstep.learning.services.hash.HashService;
@@ -30,23 +31,22 @@ import itstep.learning.dal.dto.User;
 @Singleton
 public class HomeServlet extends HttpServlet {
     // final - типу readonly
-    private final Gson gson = new Gson();
-
     private final RandomService randomService;
     private final DatetimeService datetimeService;
     private final KdfService kdfService;
     private final DbService dbService;
-
     private final DataContext dataContext;
+    private final RestService restService;
 
     // інжектуємо RandomService
     @Inject
-    public HomeServlet(RandomService randomService, DatetimeService datetimeService, KdfService kdfService, DbService dbService, DataContext dataContext) {
+    public HomeServlet(RandomService randomService, DatetimeService datetimeService, KdfService kdfService, DbService dbService, DataContext dataContext, RestService restService) {
         this.randomService = randomService;
         this.datetimeService = datetimeService;
         this.kdfService = kdfService;
         this.dbService = dbService;
         this.dataContext = dataContext;
+        this.restService = restService;
     }
 
     // doGet — метод для обработки GET-запросов
@@ -131,7 +131,7 @@ public class HomeServlet extends HttpServlet {
                 ? "Install Ok (UserRoleTable)"
                 : "Install Fail (UserRoleTable)";
 
-        sendJson(resp,
+        restService.sendResponse(resp,
                 new RestResponse()
                         .setStatus(200)
                         .setMessage(
@@ -174,12 +174,12 @@ public class HomeServlet extends HttpServlet {
 
         try{
             // парсимо модель в gson
-            model = gson.fromJson(body, UserSignupFormModel.class);
+            model = restService.fromJson(body, UserSignupFormModel.class);
             // .class - типу typeof, .class повертає цей обєкт
         }
         catch(Exception ex){
             // якщо не змогли розпарсити модель - повертаємо 422
-            sendJson(resp, restResponse
+            restService.sendResponse(resp, restResponse
                     .setStatus(422)
                     .setMessage(ex.getMessage())
             );
@@ -211,34 +211,12 @@ public class HomeServlet extends HttpServlet {
             ;
         }
         // надсилаємо сформовану відповідь клієнту в форматі джсон
-        sendJson(resp, restResponse);
+        restService.sendResponse(resp, restResponse);
     }
 
-    private void sendJson(HttpServletResponse resp, RestResponse restResponse) throws IOException {
-        // Указываем, что ответ — в формате json
-        resp.setContentType("application/json");
-
-        // налаштували CORS
-        resp.setHeader("Access-Control-Allow-Origin", "*");
-        // Отправляем ответ клиенту
-
-        resp.getWriter().print(
-                gson.toJson(restResponse)
-        );
-    }
 
     @Override
     protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        // налаштували CORS
-        // * - значить дозволяємо звертатися з усіх сайтів
-        // або замысть * адеса нашого фронтенду, напр "http://localhost:5173/"
-        resp.setHeader("Access-Control-Allow-Origin", "*");
-
-        // тут ми дозволяємо передавати content-type в заголовках
-        // (ми в методі sendJson при передачі відповіді клієнту
-        // передаємо, що у нас content-type - це json
-        resp.setHeader("Access-Control-Allow-Headers", "content-type");
-
-        resp.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+        restService.setCorsHeaders(resp);
     }
 }

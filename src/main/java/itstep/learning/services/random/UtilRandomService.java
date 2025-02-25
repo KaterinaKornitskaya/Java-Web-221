@@ -15,12 +15,12 @@ public class UtilRandomService implements RandomService {
     @Inject
     public UtilRandomService(DatetimeService datetimeService) {
         this.datetimeService = datetimeService;
+        long seed = datetimeService.getCurrentTimestamp(); // Используем текущее время как сид
+        this.random = new Random(seed);
     }
 
     @Override
     public int randomInt() {
-        long seed = datetimeService.getCurrentTimestamp();
-        random = new Random(seed);
         return random.nextInt();
     }
 
