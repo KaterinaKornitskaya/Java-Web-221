@@ -3,6 +3,7 @@ package itstep.learning.servlets;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import itstep.learning.dal.dao.DataContext;
+import itstep.learning.dal.dto.User;
 import itstep.learning.rest.RestResponse;
 import itstep.learning.rest.RestService;
 import jakarta.servlet.ServletException;
@@ -11,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.Map;
 
 @Singleton
@@ -33,7 +35,6 @@ public class UserServlet extends HttpServlet {
         RestResponse restResponse =
                 new RestResponse()
                         .setResourceUrl("GET /user")
-                        .setCacheTime( 600 )
                         .setMeta(Map.of(
                                 "dataType", "object",
                                 "read", "GET /user",
@@ -63,7 +64,44 @@ public class UserServlet extends HttpServlet {
 
         String credentials = authHeader.substring(authScheme.length());
 
-        restResponse.setData(credentials);
+        try {
+            // розпаковуємо, з байтів збираємо стрінг
+            credentials = new String(
+                    Base64.getDecoder().decode(
+                            credentials.getBytes()));
+        }
+        catch(Exception ex){
+            restService.sendResponse(resp,
+                    restResponse.setStatus(422)
+                            .setData("Decode error" + ex.getMessage()));
+            return;
+        }
+
+        // дістаєм частини із раніше створеного "мейл:пароль"
+        String[] parts = credentials.split(":", 2);
+        if(parts.length != 2){
+            restService.sendResponse(resp,
+                    restResponse.setStatus(422)
+                            .setData("Format error spliting by ':' " ));
+            return;
+        }
+
+
+        User user = dataContext.getUserDao().authorize(parts[0], parts[1]);
+        if(user == null){
+            restService.sendResponse(resp,
+                    restResponse.setStatus(401)
+                            .setData("Credentials rejected" ));
+            return;
+        }
+
+
+
+        // кешируем (.setCacheTime( 600 )) только если все ок
+        restResponse
+                .setStatus(200)
+                .setCacheTime( 600 )
+                .setData(user);
 
         restService.sendResponse(resp, restResponse);
     }

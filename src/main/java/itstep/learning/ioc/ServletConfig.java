@@ -1,6 +1,7 @@
 package itstep.learning.ioc;
 
 import com.google.inject.servlet.ServletModule;
+import itstep.learning.filters.CharsetFilter;
 import itstep.learning.servlets.HomeServlet;
 import itstep.learning.servlets.RandomServlet;
 import itstep.learning.servlets.TimeServlet;
@@ -17,5 +18,9 @@ public class ServletConfig extends ServletModule {
         serve("/user").with(UserServlet.class);
         serve("/random").with(RandomServlet.class);
 
+
+        // регистрируем фильтры - всі запити ("/*") перед переходом
+        // до сервлетів будуть переходити через цей фільтр
+        filter("/*").through(CharsetFilter.class);
     }
 }

@@ -16,14 +16,14 @@ import java.util.Map;
 
 @Singleton
 public class RandomServlet extends HttpServlet {
-    private final DataContext dataContext;
+
     private final RandomService randomService;
     private final RestService restService;
 
 
     @Inject
-    public RandomServlet(DataContext dataContext, RandomService randomService, RestService restService) {
-        this.dataContext = dataContext;
+    public RandomServlet(RandomService randomService, RestService restService) {
+
         this.randomService = randomService;
         this.restService = restService;
     }

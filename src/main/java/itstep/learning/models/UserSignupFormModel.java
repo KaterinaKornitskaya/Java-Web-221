@@ -1,12 +1,13 @@
 package itstep.learning.models;
 
+import java.sql.Timestamp;
 import java.util.Date;
 import java.util.List;
 
 public class UserSignupFormModel {
     private String name;
     // ! Date беремо з java.util
-    private Date birthDate;
+    private Timestamp birthDate;
     private String email;
     private String address;
     private String login;
@@ -24,11 +25,11 @@ public class UserSignupFormModel {
         this.name = name;
     }
 
-    public Date getBirthDate() {
+    public Timestamp getBirthDate() {
         return birthDate;
     }
 
-    public void setBirthDate(Date birthDate) {
+    public void setBirthDate(Timestamp birthDate) {
         this.birthDate = birthDate;
     }
 
