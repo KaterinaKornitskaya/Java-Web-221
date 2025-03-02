@@ -8,6 +8,8 @@ import itstep.learning.services.db.DbService;
 import itstep.learning.services.kdf.KdfService;
 
 import java.sql.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -102,6 +104,91 @@ public class UserDao {
 
 
         return user;
+    }
+
+    public User getUserById(String id){
+        UUID uuid;
+        try{
+            uuid = UUID.fromString(id);
+        } catch (Exception ex) {
+            logger.log(Level.WARNING, "UserDao:: getUserById Parse error: {0}", id);
+            return null;
+        }
+        return  getUserById(uuid);
+    }
+
+    public User getUserById(UUID uuid){
+        String sql = String.format(
+                "SELECT u.* FROM users u WHERE u.user_id = '%s'",
+                uuid.toString()
+        );
+        try(Statement stmt = dbService.getConnection().createStatement()){
+            ResultSet rs = stmt.executeQuery(sql);
+            if(rs.next()){
+                return User.fromResultSet(rs);
+            }
+        }
+        catch (SQLException ex){
+            logger.log(
+                    Level.WARNING,
+                    "UserDao:: getUserById {0}, {1}",
+                    new Object[] {ex.getMessage(), sql} );
+        }
+        return null;
+    }
+
+    public boolean update(User user){
+        // два підходи для update
+        // 1) змінювати все що не null
+        // 2) змінювати все
+
+        // заготовлюємо параметри, які будемо апдейтити
+        Map<String, Object> data = new HashMap<>();
+        if(user.getName() != null){
+            data.put("name", user.getName());
+        }
+        if(user.getPhone() != null){
+            data.put("phone", user.getPhone());
+        }
+        if(user.getAddress() != null){
+            data.put("address", user.getAddress());
+        }
+        if(user.getBirthday() != null){
+            data.put("birthdate", user.getBirthday());
+        }
+        if(data.isEmpty()) return true;
+
+        // TODO: convert to StringBuilder
+        String sql = "UPDATE users SET ";
+        boolean isFirst = true;
+
+        // збираємо sql
+        for(Map.Entry<String, Object> entry : data.entrySet()){
+            if(isFirst) isFirst = false;
+            else sql += ", ";
+
+            sql += entry.getKey() + " = ? " ;
+        }
+        sql += " WHERE user_id = ?";
+        // циклічно зібрали update
+
+        // циклічно збираємо всі параметри
+        try(PreparedStatement prep = dbService.getConnection().prepareStatement(sql)){
+            int param = 1;
+            for(Map.Entry<String, Object> entry : data.entrySet()){
+                prep.setObject(param++, entry.getValue());
+            }
+            prep.setString(param, user.getUserId().toString());
+            prep.execute();
+            return true;
+        }
+        catch (SQLException ex){
+            logger.log(
+                    Level.WARNING,
+                    "UserDao:: update {0}, {1}",
+                    new Object[] {ex.getMessage(), sql} );
+        }
+        return false;
     }
 
     public User authorize(String login, String password){

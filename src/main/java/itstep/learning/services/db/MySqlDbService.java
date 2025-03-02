@@ -30,8 +30,10 @@ public class MySqlDbService implements DbService {
 //            );
 
             // ще один спосіб підключення до БД
+            String connectionString = "jdbc:mysql://localhost:3306/java221"
+                    + "?useUnicode=true&characterEncoding=UTF-8";
             MysqlDataSource mds = new MysqlDataSource();
-            mds.setURL("jdbc:mysql://localhost:3306/java221");
+            mds.setURL(connectionString);
             connection = mds.getConnection("user221", "pass221");
         }
         return connection;

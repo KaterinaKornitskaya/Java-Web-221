@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import itstep.learning.dal.dao.DataContext;
 import itstep.learning.dal.dto.User;
+import itstep.learning.models.UserSignupFormModel;
 import itstep.learning.rest.RestResponse;
 import itstep.learning.rest.RestService;
 import jakarta.servlet.ServletException;
@@ -102,6 +103,88 @@ public class UserServlet extends HttpServlet {
                 .setStatus(200)
                 .setCacheTime( 600 )
                 .setData(user);
+
+        restService.sendResponse(resp, restResponse);
+    }
+
+    @Override
+    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        // частково формуємо відповідь клієнту
+        RestResponse restResponse =
+                new RestResponse()
+                        .setResourceUrl("PUT /user")
+                        .setMeta(Map.of(
+                                "dataType", "object",
+                                "read", "GET /user",
+                                "update", "PUT /user",
+                                "delete", "DELETE /user"
+                        ));
+
+        User userUpdates;
+
+        try{
+            userUpdates = restService.fromBody(req, User.class);
+        }
+        catch(IOException ex){
+            // якщо не змогли розпарсити модель - повертаємо 422
+            restService.sendResponse(resp, restResponse
+                    .setStatus(422)
+                    .setMessage(ex.getMessage())
+            );
+            return;
+        }
+        if(userUpdates == null || userUpdates.getUserId() == null){
+            restService.sendResponse(resp, restResponse
+                    .setStatus(422)
+                    .setMessage("Unparseable data or identity undefined")
+            );
+            return;
+        }
+        User user = dataContext
+                .getUserDao()
+                .getUserById(userUpdates.getUserId());
+        if(user == null){
+            restService.sendResponse(resp, restResponse
+                    .setStatus(404)
+                    .setMessage("User not found")
+            );
+            return;
+        }
+
+        // тепер після операцій вище - розпарсили id
+        // та знайшли юзера - можемо вносити зміни
+        if( ! dataContext.getUserDao().update(userUpdates)){
+            restService.sendResponse(resp, restResponse
+                    .setStatus(500)
+                    .setMessage("Server error. See logs")
+            );
+            return;
+        }
+
+        restResponse
+                .setStatus(202)
+                .setCacheTime( 0 )
+                .setData(userUpdates);
+
+        restService.sendResponse(resp, restResponse);
+    }
+
+    @Override
+    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        RestResponse restResponse =
+                new RestResponse()
+                        .setResourceUrl("DELETE /user")
+                        .setMeta(Map.of(
+                                "dataType", "object",
+                                "read", "GET /user",
+                                "update", "PUT /user",
+                                "delete", "DELETE /user"
+                        ));
+
+        restResponse
+                .setStatus(202)
+                .setCacheTime( 0 )
+                .setData("Com soon");
 
         restService.sendResponse(resp, restResponse);
     }

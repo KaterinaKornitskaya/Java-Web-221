@@ -19,6 +19,8 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.io.IOException;
 import java.sql.*;
@@ -152,9 +154,10 @@ public class HomeServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         // приймаємо body
         // приймаємо байт-масив і формуємо з нього строку
-        String body = new String(req.getInputStream().readAllBytes());
-
+        // String body = new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         // тепер отримані дані стрінг треба перетворити в джсон
+
+
         // нам потрібні будуть моделі форм, які ми будемо приймати і обробляти
         // для цього створюємо package itstep.learning.model, в який
         // додаємо новий java class UserSignupFormModel
@@ -174,10 +177,10 @@ public class HomeServlet extends HttpServlet {
 
         try{
             // парсимо модель в gson
-            model = restService.fromJson(body, UserSignupFormModel.class);
+            model = restService.fromBody(req, UserSignupFormModel.class);
             // .class - типу typeof, .class повертає цей обєкт
         }
-        catch(Exception ex){
+        catch(IOException ex){
             // якщо не змогли розпарсити модель - повертаємо 422
             restService.sendResponse(resp, restResponse
                     .setStatus(422)
