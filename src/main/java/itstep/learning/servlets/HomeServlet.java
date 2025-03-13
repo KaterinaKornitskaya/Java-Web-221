@@ -133,6 +133,10 @@ public class HomeServlet extends HttpServlet {
                 ? "Install Ok (UserRoleTable)"
                 : "Install Fail (UserRoleTable)";
 
+        String msg3 = dataContext.getAccessTokenDao().installTables()
+                ? "Install Ok (AccessTokenTable)"
+                : "Install Fail (AccessTokenTable)";
+
         restService.sendResponse(resp,
                 new RestResponse()
                         .setStatus(200)
@@ -146,6 +150,7 @@ public class HomeServlet extends HttpServlet {
                                 + "| datetimeService.getCurrentTimestamp(): " + datetimeService.getCurrentTimestamp() + " | "
                                 + "| getUserDao().installTables(): " + msg + " | "
                                 + "| getUserRoleDao().installUserRolesTable(): " + msg2 + " | "
+                                + "| getAccessTokenDao().installTables(): " + msg3 + " | "
                         )
         );
     }
@@ -223,3 +228,57 @@ public class HomeServlet extends HttpServlet {
         restService.setCorsHeaders(resp);
     }
 }
+
+/*
+* Асинхронне виконання коду
+* Синхронне - послідовне (у часі)
+* Задача1 Задача2 Задача3 - виконуються один за одним
+*
+* Асинхронність - будь-яке відхилення від синхронності
+* Чиста паралельність - паралельне одночасне виконання:
+* Задача1
+* Задача2
+* Задача3
+*
+* Ниткового типу - якісь задачі послідовні, якісь парелельно
+* Задача1 Задача2
+* Задача3
+*
+* Перемикання - паралельне з перемиканням
+* Частина задачі1   Наступна частина задачі 1    Наступна частина задачі 1
+*   Частина задачі 2    Наступна частина задачі 2   Наступна частина задачі 2
+*       Частина задачі 3    Наступна частина задачі 3   Наступна частина задачі 3
+*
+*
+* Способи раеалізації асинхронності:
+* 1) Багатозадачність - засоби мови програмування (Task, Future, Promise)
+* 2) Багатопоточність - засоби операційної системи(за наявності)
+* 3) Багатопроцесність - засоби операційної системи
+* (потоки працюють всередині процесів)
+* 4) Мережні (grid, network) технології
+*
+*
+* Поганий варіант писати так:
+* async fun() {...}
+* res = await fun();
+*
+* Краще так:
+* task = fun();
+* ставимо таска ы запускаэмо ф-ію, яка повертає таск або проміс або фьючер
+* other work
+* res = await task; тільки коли потрібно - чекаємо ф-ію
+*
+* Або:
+* res = await fun().then(...).then(...)
+* тут ми вибудовуємо задачі в нитку, а результат всієї нитки
+* вже треба чекати
+* В c# замість then використовуємо continueWith
+*
+* Або:
+fun().then(...).then(...).then(res => ...)
+* це - нитка (Continuations)
+* fun().then(.2.).then(.2.).then(res2 => ...) -
+* це друга нитка, яка стартує паралельно з першою
+*
+*
+* */

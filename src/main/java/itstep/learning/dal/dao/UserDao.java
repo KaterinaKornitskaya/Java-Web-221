@@ -12,6 +12,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -40,14 +43,14 @@ public class UserDao {
         user.setEmail(userModel.getEmail());
         user.setPhone(userModel.getPhoneNumbers().get(0));
         user.setBirthday(userModel.getBirthDate());
-        user.setLogin(userModel.getLogin());
+        //user.setLogin(userModel.getLogin());
         user.setAddress(userModel.getAddress());
 
         // реєстрація юзера
         // використовуємо параметризовані запити (а не вставляємо
         // чистий стрінг в sql)
-        String sql = "INSERT INTO users (user_id, name, email, phone, address, birthdate, login)"
-                + " VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (user_id, name, email, phone, address, birthdate)"
+                + " VALUES (?, ?, ?, ?, ?, ?)";
 
         try(PreparedStatement prep = this.dbService.getConnection().prepareStatement(sql)){
             // перший параметр - номер VALUES, і в jdbc вони починаються з 1, а не з 0
@@ -57,9 +60,9 @@ public class UserDao {
             prep.setString(4, user.getPhone() );
             prep.setString(5, user.getAddress() );
             prep.setString(6, user.getBirthday().toString() );
-            prep.setString(7, user.getLogin() );
+            //prep.setString(7, user.getLogin() );
 
-            this.dbService.getConnection().setAutoCommit(false);
+            //this.dbService.getConnection().setAutoCommit(false);
             //this.connection.setAutoCommit(false);
             prep.executeUpdate();
         }
@@ -82,7 +85,7 @@ public class UserDao {
         try(PreparedStatement prep = this.dbService.getConnection().prepareStatement(sql)){
             // перший параметр - номер VALUES, і в jdbc вони починаються з 1, а не з 0
             prep.setString(1, user.getUserId().toString() );
-            prep.setString(2, user.getLogin() );
+            prep.setString(2, user.getEmail() );
             String salt = UUID.randomUUID().toString().substring(0, 16);
             prep.setString(3, salt );
             prep.setString(4, kdfService.dk(userModel.getPassword(), salt) );
@@ -147,6 +150,9 @@ public class UserDao {
         if(user.getName() != null){
             data.put("name", user.getName());
         }
+        if(user.getEmail() != null){
+            data.put("email", user.getEmail());
+        }
         if(user.getPhone() != null){
             data.put("phone", user.getPhone());
         }
@@ -159,36 +165,54 @@ public class UserDao {
         if(data.isEmpty()) return true;
 
         // TODO: convert to StringBuilder
-        String sql = "UPDATE users SET ";
+        StringBuilder sqlUsers = new StringBuilder("UPDATE users SET ");
         boolean isFirst = true;
 
         // збираємо sql
-        for(Map.Entry<String, Object> entry : data.entrySet()){
-            if(isFirst) isFirst = false;
-            else sql += ", ";
-
-            sql += entry.getKey() + " = ? " ;
+        for(Map.Entry<String, Object> key : data.entrySet()){
+            if(!isFirst) sqlUsers.append(", ");
+            sqlUsers.append(key.getKey()).append(" = ?");
+            isFirst = false;
         }
-        sql += " WHERE user_id = ?";
+        sqlUsers.append(" WHERE user_id = ?");
         // циклічно зібрали update
 
-        // циклічно збираємо всі параметри
-        try(PreparedStatement prep = dbService.getConnection().prepareStatement(sql)){
-            int param = 1;
-            for(Map.Entry<String, Object> entry : data.entrySet()){
-                prep.setObject(param++, entry.getValue());
+        // Если email изменяется, добавляем второй запрос для users_access
+        String sqlUsersAccess = null;
+        boolean updateAccess = user.getEmail() != null;
+        if (updateAccess) {
+            sqlUsersAccess = "UPDATE users_access SET login = ? WHERE user_id = ?";
+        }
+
+        try {
+
+            // 1. Обновляем users
+            try (PreparedStatement prepUsers = dbService.getConnection().prepareStatement(sqlUsers.toString())) {
+                int param = 1;
+                for (Object value : data.values()) {
+                    prepUsers.setObject(param++, value);
+                }
+                prepUsers.setString(param, user.getUserId().toString());
+                prepUsers.executeUpdate();
+                //dbService.getConnection().commit();
             }
-            prep.setString(param, user.getUserId().toString());
-            prep.execute();
+
+            // 2. Обновляем users_access, если изменяется email
+            if (updateAccess) {
+                try (PreparedStatement prepAccess = dbService.getConnection().prepareStatement(sqlUsersAccess)) {
+                    prepAccess.setString(1, user.getEmail());
+                    prepAccess.setString(2, user.getUserId().toString());
+                    prepAccess.executeUpdate();
+                    //dbService.getConnection().commit();
+                }
+            }
+            dbService.getConnection().commit();
             return true;
         }
-        catch (SQLException ex){
-            logger.log(
-                    Level.WARNING,
-                    "UserDao:: update {0}, {1}",
-                    new Object[] {ex.getMessage(), sql} );
+        catch (SQLException ex) {
+            logger.log(Level.WARNING, "UserDao::update {0}", ex.getMessage());
+            return false;
         }
-        return false;
     }
 
     public User authorize(String login, String password){
@@ -227,8 +251,97 @@ public class UserDao {
         return null;
     }
 
+    public CompletableFuture deleteAsync(User user){
+        // видаляємо тільки особисту інфо, а id лишаємо
+        // тому наш delete - це по суті update
+        String sql1 = String.format(
+                "UPDATE users SET delete_moment = CURRENT_TIMESTAMP," +
+                " name = '', email = '', phone = NULL, address = NULL, birthdate = NULL WHERE user_id = '%s'",
+                user.getUserId().toString() );
+
+        String sql2 = String.format(
+                "UPDATE users_access SET ua_delete_dt = CURRENT_TIMESTAMP," +
+                " login = UUID() WHERE user_id = '%s'",
+                user.getUserId().toString() );
+
+        // виконуємо два запити вище паралельно
+        CompletableFuture task1 = CompletableFuture.runAsync(() -> {
+            try(Statement stmt = dbService.getConnection().createStatement()){
+                stmt.executeUpdate(sql1);
+            }
+            catch (SQLException ex){
+                logger.log(Level.WARNING, "UserDao::delete1 {0}", ex.getMessage());
+
+                // якщо запит не пройшов - скасовуємо транзакцію
+                try {
+                    dbService.getConnection().rollback();
+                }
+                catch (SQLException ignore){}
+            }
+        });
+
+        CompletableFuture task2 = CompletableFuture.runAsync(() -> {
+            try(Statement stmt = dbService.getConnection().createStatement()){
+                stmt.executeUpdate(sql2);
+            }
+            catch (SQLException ex){
+                logger.log(Level.WARNING, "UserDao::delete2 {0}", ex.getMessage());
+
+                // якщо запит не пройшов - скасовуємо транзакцію
+                try {
+                    dbService.getConnection().rollback();
+                }
+                catch (SQLException ignore){}
+            }
+        });
+        return CompletableFuture
+                .allOf(task1, task2)
+                .thenRun( () -> {
+                    try {
+                        dbService.getConnection().commit();
+                    }
+                    catch (SQLException ignore){}
+                });
+
+//        try{
+//            task1.get();  // analog - await task1
+//            task2.get();
+//        }
+//        catch (ExecutionException | InterruptedException ignore) {}
+
+
+    }
+
     public boolean installTables(){
-        return installUsers() && installUsersAccess();
+        // запускаємо таски
+        Future<Boolean> task1 = CompletableFuture
+                .supplyAsync(this::installUsersAccess);
+        Future<Boolean> task2 = CompletableFuture
+                .supplyAsync(this::installUsers);
+
+        try{
+            boolean res1 = task1.get();  // analog - await task1
+            boolean res2 = task2.get();
+
+            // всі команди, які щось змінюють в БД -
+            // мають комітитись після виконання
+            try{ dbService.getConnection().commit(); }
+            catch (SQLException ignore) {}
+
+            return res1 && res2;
+        }
+        catch (ExecutionException | InterruptedException ignore){
+            return false;
+        }
+        // тепер при виклику методу installTables()
+        // він запускає дві задача асинхронно,
+        // поки одна задача чекається - друга виконується
+
+
+        // в звичайному варіанті в цьому методі є тільки
+        // ретурн нижче
+        // все що вище - робимо асинхронний варіант
+        //return installUsers() && installUsersAccess();
     }
 
     private boolean installUsersAccess(){
@@ -239,6 +352,7 @@ public class UserDao {
                 + "login    VARCHAR(128) NOT NULL,"
                 + "salt     CHAR(16) NOT NULL,"
                 + "dk       CHAR(20) NOT NULL,"
+                + "ua_delete_dt DATETIME NULL,"
                 + "UNIQUE(login)"
                 + ") Engine = InnoDB, DEFAULT CHARSET = utf8mb4";
         try(Statement statement = connection.createStatement()) {
@@ -259,9 +373,10 @@ public class UserDao {
                 + "name     VARCHAR(128) NOT NULL,"
                 + "email    VARCHAR(256) NOT NULL,"
                 + "phone    VARCHAR(32) NULL,"
-                + "login    VARCHAR(56) NOT NULL,"
+                //+ "login    VARCHAR(56) NOT NULL,"
                 + "address  VARCHAR(255) NULL,"
-                + "birthdate DATE NULL"
+                + "birthdate DATE NULL,"
+                + "delete_moment DATETIME NULL"
                 + ") Engine = InnoDB, DEFAULT CHARSET = utf8mb4";
         try(Statement statement = connection.createStatement()) {
             statement.executeUpdate(sql);

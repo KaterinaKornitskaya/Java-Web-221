@@ -14,7 +14,10 @@ public class User {
     private String phone;
     private Timestamp birthday;
     private String address;
-    private String login;
+    //private String login;
+    private java.util.Date deleteMoment;
+
+
 
     public static User fromResultSet(ResultSet rs) throws SQLException {
         User user = new User();
@@ -22,10 +25,18 @@ public class User {
         user.setName(rs.getString("name"));
         user.setEmail(rs.getString("email"));
         user.setPhone(rs.getString("phone"));
+
         Timestamp timestamp = rs.getTimestamp("birthdate");
         user.setBirthday(timestamp == null ? null : new Timestamp(timestamp.getTime()));
+
         user.setAddress(rs.getString("address"));
-        user.setLogin(rs.getString("login"));
+        //user.setLogin(rs.getString("login"));
+
+        java.sql.Timestamp timestamp2 = rs.getTimestamp("delete_moment");
+        user.setDeleteMoment(
+                timestamp2 == null ? null : new Date(timestamp2.getTime())
+        );
+
         return user;
     }
 
@@ -77,11 +88,19 @@ public class User {
         this.address = address;
     }
 
-    public String getLogin() {
-        return login;
+//    public String getLogin() {
+//        return login;
+//    }
+//
+//    public void setLogin(String login) {
+//        this.login = login;
+//    }
+
+    public Date getDeleteMoment() {
+        return deleteMoment;
     }
 
-    public void setLogin(String login) {
-        this.login = login;
+    public void setDeleteMoment(Date deleteMoment) {
+        this.deleteMoment = deleteMoment;
     }
 }

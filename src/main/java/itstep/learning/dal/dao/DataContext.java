@@ -11,15 +11,12 @@ import java.util.logging.Logger;
 
 @Singleton
 public class DataContext {
-    private final Logger logger;
     private final UserDao userDao;
     private final UserRoleDao userRoleDao;
-    private final Injector injector;
+    private final AccessTokenDao accessTokenDao;
 
     @Inject
-    public DataContext(DbService dbService, Logger logger, Injector injector) throws SQLException {
-        this.logger = logger;
-        this.injector = injector;
+    public DataContext(Injector injector) throws SQLException {
 
         // аналог - userDao = new UserDao(connection, logger);
         userDao = injector.getInstance(UserDao.class);
@@ -28,6 +25,7 @@ public class DataContext {
 
         // аналог - userRoleDao = new UserRoleDao(connection);
         userRoleDao = injector.getInstance(UserRoleDao.class);
+        accessTokenDao = injector.getInstance(AccessTokenDao.class);
     }
 
     public UserDao getUserDao() {
@@ -36,5 +34,9 @@ public class DataContext {
 
     public UserRoleDao getUserRoleDao() {
         return userRoleDao;
+    }
+
+    public AccessTokenDao getAccessTokenDao() {
+        return accessTokenDao;
     }
 }

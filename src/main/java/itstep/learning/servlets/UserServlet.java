@@ -15,16 +15,22 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Base64;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @Singleton
 public class UserServlet extends HttpServlet {
     private final DataContext dataContext;
     private final RestService restService;
+    private final Logger logger;
 
     @Inject
-    public UserServlet(DataContext dataContext, RestService restService) {
+    public UserServlet(DataContext dataContext, RestService restService, Logger logger) {
         this.dataContext = dataContext;
         this.restService = restService;
+        this.logger = logger;
     }
 
     @Override
@@ -181,10 +187,55 @@ public class UserServlet extends HttpServlet {
                                 "delete", "DELETE /user"
                         ));
 
+        // тут назвали параметр id, значить такий же ы використовуэмо
+        // на фронті в запиті видалення : request('/user?id=' + user.userId, {
+        String userId = req.getParameter("id");  // /user?id=...
+
+        if(userId == null){
+            restService.sendResponse(resp, restResponse
+                    .setStatus(400)
+                    .setData("Missing required id"));
+            return;
+        }
+
+        UUID userUuid;
+
+        try{
+            userUuid = UUID.fromString(userId);
+        }
+        catch (Exception ignore) {
+            restService.sendResponse(resp, restResponse
+                    .setStatus(400)
+                    .setData("Invalid id format"));
+            return;
+        }
+
+        User user = dataContext.getUserDao().getUserById(userUuid);
+        if(user == null){
+            restService.sendResponse(resp, restResponse
+                    .setStatus(401)
+                    .setData("Unauthorized"));
+            return;
+        }
+
+        try{
+            // get() - значить чекаємо
+            dataContext.getUserDao().deleteAsync(user).get();
+        }
+        catch(InterruptedException | ExecutionException ex){
+            logger.log(Level.SEVERE, "deleteAsync fail: {0}", ex.getMessage());
+            restService.sendResponse(resp, restResponse
+                    .setStatus(500)
+                    .setData("Server error. See server`s logs")
+            );
+            return;
+        }
+
+
         restResponse
                 .setStatus(202)
                 .setCacheTime( 0 )
-                .setData("Com soon");
+                .setData("Deleted");
 
         restService.sendResponse(resp, restResponse);
     }

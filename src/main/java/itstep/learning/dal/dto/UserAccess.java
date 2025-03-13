@@ -1,5 +1,6 @@
 package itstep.learning.dal.dto;
 
+import java.util.Date;
 import java.util.UUID;
 // Art. 17 GDPR – Right to erasure (‘right to be forgotten’) - General Data Protection Regulation (GDPR) (gdpr-info.eu)
 // право бути забутим - всі користувачі мають мати право
@@ -15,6 +16,9 @@ public class UserAccess {
     private String salt;
     private String dk;
     private String roleId;
+    private java.util.Date deleteMoment;
+
+
 
     public UUID getUserAccessId() {
         return userAccessId;
@@ -62,5 +66,13 @@ public class UserAccess {
 
     public void setRoleId(String roleId) {
         this.roleId = roleId;
+    }
+
+    public Date getDeleteMoment() {
+        return deleteMoment;
+    }
+
+    public void setDeleteMoment(Date deleteMoment) {
+        this.deleteMoment = deleteMoment;
     }
 }
