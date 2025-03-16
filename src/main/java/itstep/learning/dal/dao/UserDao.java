@@ -3,6 +3,7 @@ package itstep.learning.dal.dao;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import itstep.learning.dal.dto.User;
+import itstep.learning.dal.dto.UserAccess;
 import itstep.learning.models.UserSignupFormModel;
 import itstep.learning.services.db.DbService;
 import itstep.learning.services.kdf.KdfService;
@@ -215,13 +216,13 @@ public class UserDao {
         }
     }
 
-    public User authorize(String login, String password){
+    public UserAccess authorize(String login, String password){
         // SELECT * FROM users_access ua
         // JOIN users u ON ua.user_id = u.user_id
         // WHERE ua.login = 'ketrinradchenko@gmail.com'
         String sql =
                 "SELECT * FROM users_access ua " +
-                "JOIN users u ON ua.user_id = u.user_id " +
+                //"JOIN users u ON ua.user_id = u.user_id " +
                 "WHERE ua.login = ?";
         // створюємо підготовлений запит
         try(PreparedStatement prep = dbService.getConnection().prepareStatement(sql)){
@@ -241,7 +242,7 @@ public class UserDao {
                     // дві класичні форми фабричних методів
                     // 1) через конструктор - new User(rs)
                     // 2) через статік методи - User.fromResultSet(rs)
-                    return User.fromResultSet(rs);
+                    return UserAccess.fromResultSet(rs);
                 }
             }
         }

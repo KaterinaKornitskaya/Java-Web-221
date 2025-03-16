@@ -3,7 +3,10 @@ package itstep.learning.servlets;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import itstep.learning.dal.dao.DataContext;
+import itstep.learning.dal.dto.AccessToken;
 import itstep.learning.dal.dto.User;
+import itstep.learning.dal.dto.UserAccess;
+import itstep.learning.models.UserAuthViewModel;
 import itstep.learning.models.UserSignupFormModel;
 import itstep.learning.rest.RestResponse;
 import itstep.learning.rest.RestService;
@@ -94,13 +97,30 @@ public class UserServlet extends HttpServlet {
         }
 
 
-        User user = dataContext.getUserDao().authorize(parts[0], parts[1]);
-        if(user == null){
+        UserAccess userAccess = dataContext.getUserDao().authorize(parts[0], parts[1]);
+        if(userAccess == null){
             restService.sendResponse(resp,
                     restResponse.setStatus(401)
                             .setData("Credentials rejected" ));
             return;
         }
+
+        // тут юзер автентифікується
+        // тут треба створити токен для користувача
+        //AccessToken token = dataContext.getAccessTokenDao().createToken(userAccess);
+
+        // перевірка - чи є активний токен
+        AccessToken token = dataContext.getAccessTokenDao().getActiveToken(userAccess.getUserId());
+
+        if (token == null) {
+            // якщо активного токену нема - створюємо новий
+            token = dataContext.getAccessTokenDao().createToken(userAccess);
+        } else {
+            // якщо активний токен є - продовжуємо і оновлюємо його
+            token = dataContext.getAccessTokenDao().extendToken(token);
+        }
+
+        User user = dataContext.getUserDao().getUserById(userAccess.getUserId());
 
 
 
@@ -108,7 +128,7 @@ public class UserServlet extends HttpServlet {
         restResponse
                 .setStatus(200)
                 .setCacheTime( 600 )
-                .setData(user);
+                .setData( new UserAuthViewModel(user, userAccess, token));
 
         restService.sendResponse(resp, restResponse);
     }
@@ -125,6 +145,35 @@ public class UserServlet extends HttpServlet {
                                 "update", "PUT /user",
                                 "delete", "DELETE /user"
                         ));
+
+        // перевіряємо авторизацію за токеном
+        // створюємо заголовок
+        String authHeader = req.getHeader("Authorization");
+        if(authHeader == null){
+            restService.sendResponse(resp,
+                    restResponse.setStatus(401)
+                            .setData("Authorization header required"));
+            return;
+        }
+
+        // Bearer з пробілом в кінці!!!
+        String authScheme = "Bearer ";
+        if(!authHeader.startsWith(authScheme)){
+            restService.sendResponse(resp,
+                    restResponse.setStatus(401)
+                            .setData("Authorization scheme error"));
+            return;
+        }
+
+        String credentials = authHeader.substring(authScheme.length());
+
+        UserAccess userAccess =  dataContext.getAccessTokenDao().getUserAccess(credentials);
+        if(userAccess == null){
+            restService.sendResponse(resp,
+                    restResponse.setStatus(401)
+                            .setData("Token expires or invalid"));
+            return;
+        }
 
         User userUpdates;
 

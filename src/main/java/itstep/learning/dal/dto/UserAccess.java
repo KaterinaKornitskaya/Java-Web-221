@@ -1,5 +1,8 @@
 package itstep.learning.dal.dto;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.Date;
 import java.util.UUID;
 // Art. 17 GDPR – Right to erasure (‘right to be forgotten’) - General Data Protection Regulation (GDPR) (gdpr-info.eu)
@@ -18,7 +21,20 @@ public class UserAccess {
     private String roleId;
     private java.util.Date deleteMoment;
 
+    public static UserAccess fromResultSet (ResultSet rs) throws SQLException {
+        UserAccess userAccess = new UserAccess();
+        userAccess.setUserAccessId(UUID.fromString(rs.getString("user_access_id")));
+        userAccess.setUserId(UUID.fromString(rs.getString("user_id")));
+        userAccess.setLogin(rs.getString("login"));
+        userAccess.setSalt(rs.getString("salt"));
+        userAccess.setDk(rs.getString("dk"));
+        userAccess.setRoleId(rs.getString("role_id"));
 
+        Timestamp timestamp = rs.getTimestamp("ua_delete_dt");
+        userAccess.setDeleteMoment(timestamp == null ? null : new Timestamp(timestamp.getTime()));
+
+        return userAccess;
+    }
 
     public UUID getUserAccessId() {
         return userAccessId;
