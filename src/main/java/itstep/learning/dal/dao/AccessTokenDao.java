@@ -5,6 +5,7 @@ import com.google.inject.Singleton;
 import itstep.learning.dal.dto.AccessToken;
 import itstep.learning.dal.dto.User;
 import itstep.learning.dal.dto.UserAccess;
+import itstep.learning.services.config.ConfigService;
 import itstep.learning.services.db.DbService;
 import itstep.learning.services.kdf.KdfService;
 
@@ -19,11 +20,18 @@ public class AccessTokenDao {
 
     private final Logger logger;
     private final DbService dbService;
+    private final ConfigService configService;
+
+    private int tokenLifetime;
+
 
     @Inject
-    public AccessTokenDao (DbService dbService, Logger logger) throws SQLException {
+    public AccessTokenDao (DbService dbService, Logger logger, ConfigService configService) throws SQLException {
         this.dbService = dbService;
         this.logger = logger;
+        this.configService = configService;
+        this.tokenLifetime = 0;
+
     }
 
     // видача токену - create
@@ -34,12 +42,17 @@ public class AccessTokenDao {
             return null;
         }
 
+        if(tokenLifetime == 0) {
+            tokenLifetime = 1000 *  // in milliseconds
+                    configService.getValue("token.lifetime").getAsInt();
+        }
+
         AccessToken token = new AccessToken();
         token.setAccessTokenId(UUID.randomUUID());
         token.setUserAccessId(userAccess.getUserAccessId());
         Date date = new Date();
         token.setIssuedAt(date);
-        token.setExpiresAt(new Date(date.getTime() + 100*10000));
+        token.setExpiresAt(new Date(date.getTime() + 300*1000));
 
         String sql = "INSERT INTO access_tokens (access_token_id, user_access_id, issued_at, expires_at) " +
                 "VALUES (?, ?, ?, ?)";
@@ -132,7 +145,7 @@ public class AccessTokenDao {
 
         // змінюємо expires_at
         String sql = "UPDATE access_tokens SET expires_at = ? WHERE access_token_id = ?";
-        Date newExpiry = new Date(System.currentTimeMillis() + 100 * 1000*1000);
+        Date newExpiry = new Date(System.currentTimeMillis() + tokenLifetime);
 
         // готуємо запит
         try (PreparedStatement prep = dbService.getConnection().prepareStatement(sql)) {

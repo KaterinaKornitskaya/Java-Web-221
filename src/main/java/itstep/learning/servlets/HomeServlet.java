@@ -8,6 +8,7 @@ import itstep.learning.dal.dao.DataContext;
 import itstep.learning.models.UserSignupFormModel;
 import itstep.learning.rest.RestResponse;
 import itstep.learning.rest.RestService;
+import itstep.learning.services.config.ConfigService;
 import itstep.learning.services.datetime.DatetimeService;
 import itstep.learning.services.db.DbService;
 import itstep.learning.services.hash.HashService;
@@ -20,6 +21,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.io.IOException;
@@ -39,16 +41,18 @@ public class HomeServlet extends HttpServlet {
     private final DbService dbService;
     private final DataContext dataContext;
     private final RestService restService;
+    private final ConfigService configService;
 
     // інжектуємо RandomService
     @Inject
-    public HomeServlet(RandomService randomService, DatetimeService datetimeService, KdfService kdfService, DbService dbService, DataContext dataContext, RestService restService) {
+    public HomeServlet(RandomService randomService, DatetimeService datetimeService, KdfService kdfService, DbService dbService, DataContext dataContext, RestService restService, ConfigService configService) {
         this.randomService = randomService;
         this.datetimeService = datetimeService;
         this.kdfService = kdfService;
         this.dbService = dbService;
         this.dataContext = dataContext;
         this.restService = restService;
+        this.configService = configService;
     }
 
     // doGet — метод для обработки GET-запросов
@@ -137,6 +141,16 @@ public class HomeServlet extends HttpServlet {
                 ? "Install Ok (AccessTokenTable)"
                 : "Install Fail (AccessTokenTable)";
 
+        String connectionString = "jdbc:mysql://localhost:3306/java221"
+                + "?useUnicode=true&characterEncoding=UTF-8";
+        String connectionString2 = "jdbc:"
+                + configService.getValue("db.MySql.dbms").getAsString() + "://"
+                + configService.getValue("db.MySql.host").getAsString() + ":"
+                + configService.getValue("db.MySql.port").getAsInt() + "/"
+                + configService.getValue("db.MySql.schema").getAsString() + "?"
+                + configService.getValue("db.MySql.params").getAsString().replace("\\u003d", "=").replace("\\u0026", "&")
+                ;
+
         restService.sendResponse(resp,
                 new RestResponse()
                         .setStatus(200)
@@ -151,6 +165,13 @@ public class HomeServlet extends HttpServlet {
                                 + "| getUserDao().installTables(): " + msg + " | "
                                 + "| getUserRoleDao().installUserRolesTable(): " + msg2 + " | "
                                 + "| getAccessTokenDao().installTables(): " + msg3 + " | "
+                                        + "| configService.getValue(): " + configService.getValue("db.MySql.port").getAsInt() + " | "
+                                        + "| schema: " + configService.getValue("db.MySql.schema").getAsString() + " | "
+                                        + "| params: " + configService.getValue("db.MySql.params").getAsString().replace("\\u003d", "=").replace("\\u0026", "&") + " | "
+                                        + "| user: " + configService.getValue("db.MySql.user").getAsString() + " | "
+                                        + "| password: " + configService.getValue("db.MySql.password").getAsString() + " | "
+                                        + "| autocommit: " + configService.getValue("db.MySql.autocommit").getAsBoolean()
+                                + "CONN STRING2: " + connectionString2 + " | "
                         )
         );
     }

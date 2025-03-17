@@ -1,0 +1,1 @@
+Important! Before using the project, rename appsettings-sample.json to appsettings.json and enter your own values instead of *****.
